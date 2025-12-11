@@ -1,67 +1,45 @@
 require('dotenv').config();
-const { Client, GatewayIntentBits, PermissionFlagsBits } = require('discord.js');
+const { Client, GatewayIntentBits, Events } = require('discord.js');
+const noblox = require('noblox.js');
 
-const client = new Client({
-  intents: [
-    GatewayIntentBits.Guilds,
-    GatewayIntentBits.GuildMessages,
-    GatewayIntentBits.MessageContent,
-  ],
+const client = new Client({ intents: [GatewayIntentBits.Guilds] });
+
+client.once(Events.ClientReady, () => {
+  console.log(`✅ Bot conectado como ${client.user.tag}`);
 });
 
-client.once('ready', () => {
-  console.log(`Bot iniciado correctamente como ${client.user.tag}`);
-
-  // Presencia personalizada: Watching Hong Kong Tijuana
-  client.user.setPresence({
-    activities: [
-      { name: 'Hong Kong Tijuana', type: 3 } // type: 3 = Watching
-    ],
-    status: 'online'
-  });
-});
-
-client.on('interactionCreate', async (interaction) => {
+client.on(Events.InteractionCreate, async interaction => {
   if (!interaction.isChatInputCommand()) return;
-  if (interaction.commandName !== 'announce') return;
 
-  const isOwner = interaction.guild.ownerId === interaction.user.id;
-  const isAdmin = interaction.member.permissions.has(PermissionFlagsBits.Administrator);
+  // /announce — admins
+  if (interaction.commandName === 'announce') {
+    const channel = interaction.options.getChannel('channel');
+    const title = interaction.options.getString('title');
+    const message = interaction.options.getString('message');
 
-  if (!isOwner && !isAdmin) {
-    return interaction.reply({ 
-      content: 'Solo los owners y administradores pueden usar este comando.', 
-      ephemeral: true 
-    });
+    try {
+      await channel.send(`📢 **${title}**\n${message}`);
+      await interaction.reply({ content: '✅ Anuncio publicado.', ephemeral: true });
+    } catch (err) {
+      console.error(err);
+      await interaction.reply({ content: '❌ No pude publicar el anuncio.', ephemeral: true });
+    }
   }
 
-  const channel = interaction.options.getChannel('channel');
-  const title = interaction.options.getString('title');
-  const message = interaction.options.getString('message');
-
-  if (!channel || !title || !message) {
-    return interaction.reply({ 
-      content: 'Debes especificar el canal, el título y el mensaje.', 
-      ephemeral: true 
-    });
+  // /activeplayers — todos
+  if (interaction.commandName === 'activeplayers') {
+    try {
+      const placeId = process.env.ROBLOX_PLACE_ID;
+      if (!placeId) {
+        return interaction.reply({ content: '⚠️ Falta ROBLOX_PLACE_ID en variables.', ephemeral: true });
+      }
+      const gameInfo = await noblox.getPlaceInfo(Number(placeId));
+      await interaction.reply(`🎮 Actualmente hay **${gameInfo.playing}** jugadores activos en **${gameInfo.name}**.`);
+    } catch (err) {
+      console.error(err);
+      await interaction.reply('❌ No pude obtener la información del juego.');
+    }
   }
-
-  const canSend = channel.permissionsFor(interaction.guild.members.me)?.has(PermissionFlagsBits.SendMessages);
-  if (!canSend) {
-    return interaction.reply({ 
-      content: `No tengo permiso para enviar mensajes en ${channel}.`, 
-      ephemeral: true 
-    });
-  }
-
-  await interaction.deferReply({ ephemeral: true });
-
-  // Mensaje plano, profesional, sin emojis ni líneas
-  const formatted = `@everyone @here\n\n**${title}**\n\n${message}`;
-
-  await channel.send(formatted);
-
-  await interaction.editReply('Anuncio publicado correctamente.');
 });
 
 client.login(process.env.DISCORD_TOKEN);

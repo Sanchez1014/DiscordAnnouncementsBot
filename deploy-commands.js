@@ -1,6 +1,7 @@
 require('dotenv').config();
-const { REST, Routes, SlashCommandBuilder } = require('discord.js');
+const { REST, Routes, SlashCommandBuilder, PermissionFlagsBits } = require('discord.js');
 
+// /announce — solo admins
 const announce = new SlashCommandBuilder()
   .setName('announce')
   .setDescription('Publica un anuncio plano con título y mensaje.')
@@ -9,9 +10,17 @@ const announce = new SlashCommandBuilder()
   .addStringOption(opt =>
     opt.setName('title').setDescription('Título del anuncio').setRequired(true))
   .addStringOption(opt =>
-    opt.setName('message').setDescription('Texto del anuncio').setRequired(true));
+    opt.setName('message').setDescription('Texto del anuncio').setRequired(true))
+  .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
+  .setDMPermission(false); // no en DM
 
-const commands = [announce.toJSON()];
+// /activeplayers — todos
+const activePlayers = new SlashCommandBuilder()
+  .setName('activeplayers')
+  .setDescription('Muestra cuántos jugadores están activos en tu juego de Roblox.')
+  .setDMPermission(false);
+
+const commands = [announce.toJSON(), activePlayers.toJSON()];
 
 const rest = new REST({ version: '10' }).setToken(process.env.DISCORD_TOKEN);
 
@@ -21,8 +30,9 @@ const rest = new REST({ version: '10' }).setToken(process.env.DISCORD_TOKEN);
       Routes.applicationCommands(process.env.CLIENT_ID),
       { body: commands }
     );
-    console.log('✅ Comando /announce registrado globalmente en todos los servidores.');
+    console.log('✅ Comandos registrados globalmente: /announce (admins) y /activeplayers (todos)');
+    console.log('⏳ Nota: los comandos globales pueden tardar hasta 1 hora en propagarse.');
   } catch (err) {
-    console.error(err);
+    console.error('❌ Error registrando comandos:', err);
   }
 })();
