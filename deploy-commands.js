@@ -18,14 +18,10 @@ const rest = new REST({ version: '10' }).setToken(process.env.DISCORD_TOKEN);
 (async () => {
   try {
     await rest.put(
-      Routes.applicationGuildCommands(process.env.CLIENT_ID, process.env.GUILD_ID_1),
+      Routes.applicationCommands(process.env.CLIENT_ID),
       { body: commands }
     );
-    await rest.put(
-      Routes.applicationGuildCommands(process.env.CLIENT_ID, process.env.GUILD_ID_2),
-      { body: commands }
-    );
-    console.log('✅ Comando /announce registrado en ambos servidores.');
+    console.log('✅ Comando /announce registrado globalmente en todos los servidores.');
   } catch (err) {
     console.error(err);
   }
