@@ -18,7 +18,7 @@ client.on(Events.InteractionCreate, async interaction => {
     const message = interaction.options.getString('message');
 
     try {
-      await channel.send(`📢 **${title}**\n${message}`);
+      await channel.send(` **${title}**\n${message}`);
       await interaction.reply({ content: '✅ Anuncio publicado.', ephemeral: true });
     } catch (err) {
       console.error(err);

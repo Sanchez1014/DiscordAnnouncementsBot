@@ -12,7 +12,7 @@ const announce = new SlashCommandBuilder()
   .addStringOption(opt =>
     opt.setName('message').setDescription('Texto del anuncio').setRequired(true))
   .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
-  .setDMPermission(false); // no en DM
+  .setDMPermission(false);
 
 // /activeplayers — todos
 const activePlayers = new SlashCommandBuilder()
@@ -27,7 +27,7 @@ const rest = new REST({ version: '10' }).setToken(process.env.DISCORD_TOKEN);
 (async () => {
   try {
     await rest.put(
-      Routes.applicationCommands(process.env.CLIENT_ID),
+      Routes.applicationCommands(process.env.CLIENT_ID), // 🔥 Global registration
       { body: commands }
     );
     console.log('✅ Comandos registrados globalmente: /announce (admins) y /activeplayers (todos)');
