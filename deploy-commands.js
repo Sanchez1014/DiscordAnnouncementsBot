@@ -1,56 +1,115 @@
-require('dotenv').config();
-const { REST, Routes, SlashCommandBuilder, PermissionFlagsBits } = require('discord.js');
+import "dotenv/config";
+import {
+  REST,
+  Routes,
+  SlashCommandBuilder,
+  PermissionFlagsBits
+} from "discord.js";
+
+// ----------------------
+// COMANDOS ADMIN
+// ----------------------
+
+const announce = new SlashCommandBuilder()
+  .setName("announce")
+  .setDescription("Publica un anuncio plano con título y mensaje.")
+  .addChannelOption(opt =>
+    opt.setName("channel").setDescription("Canal donde publicar").setRequired(true)
+  )
+  .addStringOption(opt =>
+    opt.setName("title").setDescription("Título del anuncio").setRequired(true)
+  )
+  .addStringOption(opt =>
+    opt.setName("message").setDescription("Contenido del anuncio").setRequired(true)
+  )
+  .setDefaultMemberPermissions(PermissionFlagsBits.Administrator);
+
+const ban = new SlashCommandBuilder()
+  .setName("ban")
+  .setDescription("Banea a un usuario del servidor.")
+  .addUserOption(opt =>
+    opt.setName("user").setDescription("Usuario a banear").setRequired(true)
+  )
+  .addStringOption(opt =>
+    opt.setName("reason").setDescription("Razón del ban").setRequired(false)
+  )
+  .setDefaultMemberPermissions(PermissionFlagsBits.Administrator);
+
+// ----------------------
+// COMANDOS PARA TODOS
+// ----------------------
+
+const activePlayers = new SlashCommandBuilder()
+  .setName("activeplayers")
+  .setDescription("Muestra cuántos jugadores están activos en tu juego de Roblox.");
+
+const coinflip = new SlashCommandBuilder()
+  .setName("coinflip")
+  .setDescription("Lanza una moneda.");
+
+const rate = new SlashCommandBuilder()
+  .setName("rate")
+  .setDescription("Califico algo del 1 al 100.")
+  .addStringOption(opt =>
+    opt.setName("thing").setDescription("¿Qué quieres que califique?").setRequired(true)
+  );
+
+const meme = new SlashCommandBuilder()
+  .setName("meme")
+  .setDescription("Envía un meme aleatorio.");
+
+// ----------------------
+// COMANDOS ROBLOX
+// ----------------------
+
+const robloxUser = new SlashCommandBuilder()
+  .setName("robloxuser")
+  .setDescription("Busca un usuario de Roblox por nombre.")
+  .addStringOption(opt =>
+    opt.setName("username").setDescription("Nombre del usuario").setRequired(true)
+  );
+
+const friends = new SlashCommandBuilder()
+  .setName("friends")
+  .setDescription("Muestra cuántos amigos tiene un usuario de Roblox.")
+  .addStringOption(opt =>
+    opt.setName("username").setDescription("Nombre del usuario").setRequired(true)
+  );
+
+const gameinfo = new SlashCommandBuilder()
+  .setName("gameinfo")
+  .setDescription("Muestra información de un juego de Roblox por Place ID.")
+  .addStringOption(opt =>
+    opt.setName("placeid").setDescription("Place ID del juego").setRequired(true)
+  );
+
+// ----------------------
+// REGISTRO GLOBAL
+// ----------------------
 
 const commands = [
-
-  // /announce
-  new SlashCommandBuilder()
-    .setName('announce')
-    .setDescription('Publica un anuncio con título y mensaje.')
-    .addChannelOption(opt =>
-      opt.setName('channel').setDescription('Canal donde publicar').setRequired(true))
-    .addStringOption(opt =>
-      opt.setName('title').setDescription('Título del anuncio').setRequired(true))
-    .addStringOption(opt =>
-      opt.setName('message').setDescription('Mensaje del anuncio').setRequired(true))
-    .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
-    .setDMPermission(false),
-
-  // /activeplayers
-  new SlashCommandBuilder()
-    .setName('activeplayers')
-    .setDescription('Muestra cuántos jugadores están activos en tu juego de Roblox.')
-    .setDMPermission(false),
-
-  // /ban
-  new SlashCommandBuilder()
-    .setName('ban')
-    .setDescription('Banea a un usuario con razón, tiempo y explicación.')
-    .addUserOption(opt =>
-      opt.setName('user').setDescription('Usuario a banear').setRequired(true))
-    .addStringOption(opt =>
-      opt.setName('razon').setDescription('Razón del baneo').setRequired(true))
-    .addStringOption(opt =>
-      opt.setName('tiempo').setDescription('Tiempo del baneo (ej. permanente, 7 días)').setRequired(true))
-    .addStringOption(opt =>
-      opt.setName('explicacion').setDescription('Explicación detallada del baneo').setRequired(false))
-    .setDefaultMemberPermissions(PermissionFlagsBits.BanMembers)
-    .setDMPermission(false)
-
+  announce,
+  ban,
+  activePlayers,
+  coinflip,
+  rate,
+  meme,
+  robloxUser,
+  friends,
+  gameinfo
 ].map(cmd => cmd.toJSON());
 
-const rest = new REST({ version: '10' }).setToken(process.env.DISCORD_TOKEN);
+const rest = new REST({ version: "10" }).setToken(process.env.DISCORD_TOKEN);
 
-(async () => {
-  try {
-    console.log('⏳ Registrando comandos globales...');
-    await rest.put(
-      Routes.applicationCommands(process.env.CLIENT_ID),
-      { body: commands }
-    );
-    console.log('✅ Comandos globales registrados correctamente.');
-    console.log('⏳ Discord puede tardar hasta 1 hora en mostrarlos.');
-  } catch (err) {
-    console.error('❌ Error registrando comandos:', err);
-  }
-})();
+console.log("⏳ Registrando comandos globales...");
+
+try {
+  await rest.put(
+    Routes.applicationCommands(process.env.CLIENT_ID),
+    { body: commands }
+  );
+  console.log("✅ Comandos globales registrados correctamente.");
+  console.log("⏳ Discord puede tardar hasta 1 hora en mostrarlos.");
+} catch (err) {
+  console.error("❌ Error registrando comandos:", err);
+}
