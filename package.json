@@ -1,7 +1,6 @@
 {
   "name": "discord-announcements-bot",
   "version": "1.0.0",
-  "description": "Bot de anuncios, moderación y Roblox para DJ_SÁNCHEZ",
   "type": "module",
   "main": "index.js",
   "scripts": {

@@ -2,60 +2,69 @@ import "dotenv/config";
 import {
   Client,
   GatewayIntentBits,
-  EmbedBuilder,
   PermissionFlagsBits
 } from "discord.js";
 import fetch from "node-fetch";
 
-// ----------------------
-// CLIENT
-// ----------------------
-
 const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
-    GatewayIntentBits.GuildMembers,
-    GatewayIntentBits.GuildMessages
+    GatewayIntentBits.GuildMembers
   ]
 });
 
-// ----------------------
-// UTILS
-// ----------------------
+// --------- HELPERS ---------
 
 function isAdmin(member) {
   return member.permissions.has(PermissionFlagsBits.Administrator);
 }
 
-function errorEmbed(text) {
-  return new EmbedBuilder()
-    .setColor(0xff0000)
-    .setTitle("Error")
-    .setDescription(text);
+function formatDate(date) {
+  const d = new Date(date);
+  if (Number.isNaN(d.getTime())) return String(date);
+  return d.toLocaleString();
 }
 
-function successEmbed(title, text) {
-  return new EmbedBuilder()
-    .setColor(0x00ff88)
-    .setTitle(title)
-    .setDescription(text);
+async function getGameInfoFromPlaceId(placeId) {
+  // 1) Obtener detalles del place (incluye universeId)
+  const placeRes = await fetch(
+    `https://games.roblox.com/v1/games/multiget-place-details?placeIds=${placeId}`
+  );
+  if (!placeRes.ok) {
+    throw new Error("Error al obtener detalles del place.");
+  }
+  const placeData = await placeRes.json();
+  if (!placeData[0]) {
+    throw new Error("No se encontró el place para ese Place ID.");
+  }
+
+  const place = placeData[0];
+  const universeId = place.universeId;
+
+  // 2) Obtener info del juego por universeId
+  const gameRes = await fetch(
+    `https://games.roblox.com/v1/games?universeIds=${universeId}`
+  );
+  if (!gameRes.ok) {
+    throw new Error("Error al obtener info del juego por Universe ID.");
+  }
+  const gameData = await gameRes.json();
+  if (!gameData.data || !gameData.data[0]) {
+    throw new Error("No se encontró juego para ese Universe ID.");
+  }
+
+  const game = gameData.data[0];
+
+  return { place, game };
 }
 
-// ----------------------
-// READY
-// ----------------------
+// --------- READY ---------
 
 client.once("ready", () => {
-  console.log(`✅ Bot conectado como ${client.user.tag}`);
-  client.user.setPresence({
-    activities: [{ name: "HK / Roblox / DJ_SÁNCHEZ" }],
-    status: "online"
-  });
+  console.log(`Bot conectado como ${client.user.tag}`);
 });
 
-// ----------------------
-// COMMAND HANDLER
-// ----------------------
+// --------- COMMANDS ---------
 
 client.on("interactionCreate", async interaction => {
   if (!interaction.isChatInputCommand()) return;
@@ -63,122 +72,238 @@ client.on("interactionCreate", async interaction => {
   const name = interaction.commandName;
 
   try {
-    // ---------------------- /announce ----------------------
+    // ---------- /announce ----------
     if (name === "announce") {
-      if (!isAdmin(interaction.member))
+      if (!isAdmin(interaction.member)) {
         return interaction.reply({
-          embeds: [errorEmbed("Solo administradores pueden usar este comando.")],
+          content: "Solo administradores pueden usar este comando.",
           ephemeral: true
         });
+      }
 
       const channel = interaction.options.getChannel("channel");
       const title = interaction.options.getString("title");
       const message = interaction.options.getString("message");
 
-      const embed = new EmbedBuilder()
-        .setColor(0x00aaff)
-        .setTitle(title)
-        .setDescription(message)
-        .setFooter({ text: `Anuncio por ${interaction.user.tag}` })
-        .setTimestamp();
-
-      await channel.send({ embeds: [embed] });
+      await channel.send(
+        `ANUNCIO\nTítulo: ${title}\nMensaje: ${message}`
+      );
 
       return interaction.reply({
-        embeds: [successEmbed("Anuncio enviado", `Publicado en ${channel}.`)],
+        content: "Anuncio enviado correctamente.",
         ephemeral: true
       });
     }
 
-    // ---------------------- /ban ----------------------
+    // ---------- /ban ----------
     if (name === "ban") {
-      if (!isAdmin(interaction.member))
+      if (!isAdmin(interaction.member)) {
         return interaction.reply({
-          embeds: [errorEmbed("Solo administradores pueden usar este comando.")],
+          content: "Solo administradores pueden usar este comando.",
           ephemeral: true
         });
+      }
 
       const user = interaction.options.getUser("user");
-      const reason = interaction.options.getString("reason") || "Sin razón.";
+      const reason = interaction.options.getString("reason") || "Sin razón especificada.";
 
       const member = await interaction.guild.members.fetch(user.id).catch(() => null);
-      if (!member)
+      if (!member) {
         return interaction.reply({
-          embeds: [errorEmbed("Ese usuario no está en el servidor.")],
+          content: "Ese usuario no está en el servidor.",
           ephemeral: true
         });
+      }
 
-      await interaction.deferReply({ ephemeral: true });
-
-      await member.ban({ reason: `Ban por ${interaction.user.tag} | ${reason}` });
-
-      return interaction.editReply({
-        embeds: [successEmbed("Usuario baneado", `${user.tag} fue baneado.`)]
-      });
+      await member.ban({ reason });
+      return interaction.reply(
+        `Usuario baneado: ${user.tag}\nRazón: ${reason}`
+      );
     }
 
-    // ---------------------- /activeplayers ----------------------
+    // ---------- /robloxbansim ----------
+    if (name === "robloxbansim") {
+      if (!isAdmin(interaction.member)) {
+        return interaction.reply({
+          content: "Solo administradores pueden usar este comando.",
+          ephemeral: true
+        });
+      }
+
+      const user = interaction.options.getString("user");
+      const reason = interaction.options.getString("reason");
+      const time = interaction.options.getString("time");
+      const details = interaction.options.getString("details") || "Sin detalles adicionales.";
+
+      const logMessage =
+        `ROBLOX BAN SIMULADO\n` +
+        `Usuario de Roblox: ${user}\n` +
+        `Duración: ${time}\n` +
+        `Razón: ${reason}\n` +
+        `Detalles: ${details}\n` +
+        `Moderador: ${interaction.user.tag}`;
+
+      return interaction.reply(logMessage);
+    }
+
+    // ---------- /ping ----------
+    if (name === "ping") {
+      const wsPing = client.ws.ping;
+      return interaction.reply(`Ping del bot: ${wsPing}ms`);
+    }
+
+    // ---------- /userinfo ----------
+    if (name === "userinfo") {
+      const target = interaction.options.getUser("user") || interaction.user;
+      const member = await interaction.guild.members.fetch(target.id).catch(() => null);
+
+      const lines = [];
+      lines.push(`Usuario: ${target.tag}`);
+      lines.push(`ID: ${target.id}`);
+      if (member) {
+        lines.push(`Se unió al servidor: ${formatDate(member.joinedAt)}`);
+      }
+      lines.push(`Cuenta creada: ${formatDate(target.createdAt)}`);
+
+      return interaction.reply(lines.join("\n"));
+    }
+
+    // ---------- /serverinfo ----------
+    if (name === "serverinfo") {
+      const g = interaction.guild;
+
+      const lines = [];
+      lines.push(`Servidor: ${g.name}`);
+      lines.push(`ID: ${g.id}`);
+      lines.push(`Miembros: ${g.memberCount}`);
+      if (g.ownerId) lines.push(`Dueño: <@${g.ownerId}>`);
+      if (g.preferredLocale) lines.push(`Región/Idioma: ${g.preferredLocale}`);
+
+      return interaction.reply(lines.join("\n"));
+    }
+
+    // ---------- /activeplayers ----------
     if (name === "activeplayers") {
       const placeId = process.env.ROBLOX_PLACE_ID;
-      if (!placeId)
-        return interaction.reply({
-          embeds: [errorEmbed("Falta ROBLOX_PLACE_ID en Railway.")],
-          ephemeral: true
-        });
+      if (!placeId) {
+        return interaction.reply("Falta configurar ROBLOX_PLACE_ID en las variables.");
+      }
 
-      await interaction.deferReply();
+      try {
+        const { place, game } = await getGameInfoFromPlaceId(placeId);
+
+        return interaction.reply(
+          `Juego: ${game.name}\n` +
+          `Jugadores activos: ${game.playing}\n` +
+          `Visitas: ${game.visits}\n` +
+          `Favoritos: ${game.favoritedCount}\n` +
+          `Place ID: ${place.placeId}\n` +
+          `Universe ID: ${place.universeId}`
+        );
+      } catch (err) {
+        console.error(err);
+        return interaction.reply("No pude obtener la información del juego para ese Place ID.");
+      }
+    }
+
+    // ---------- /gameinfo ----------
+    if (name === "gameinfo") {
+      const placeIdOption = interaction.options.getString("placeid");
+      const placeId = placeIdOption || process.env.ROBLOX_PLACE_ID;
+
+      if (!placeId) {
+        return interaction.reply("Falta Place ID. Configura ROBLOX_PLACE_ID o pásalo en el comando.");
+      }
+
+      try {
+        const { place, game } = await getGameInfoFromPlaceId(placeId);
+
+        const lines = [];
+        lines.push(`Nombre: ${game.name}`);
+        if (game.description) lines.push(`Descripción: ${game.description}`);
+        lines.push(`Jugadores activos: ${game.playing}`);
+        lines.push(`Visitas: ${game.visits}`);
+        lines.push(`Favoritos: ${game.favoritedCount}`);
+        lines.push(`Place ID: ${place.placeId}`);
+        lines.push(`Universe ID: ${place.universeId}`);
+
+        return interaction.reply(lines.join("\n"));
+      } catch (err) {
+        console.error(err);
+        return interaction.reply("No pude obtener la información del juego para ese Place ID.");
+      }
+    }
+
+    // ---------- /robloxuser ----------
+    if (name === "robloxuser") {
+      const username = interaction.options.getString("username");
 
       const res = await fetch(
-        `https://games.roblox.com/v1/games/multiget-place-details?placeIds=${placeId}`
+        `https://users.roblox.com/v1/users/search?keyword=${encodeURIComponent(username)}&limit=1`
       );
+      if (!res.ok) {
+        return interaction.reply("No pude buscar ese usuario en Roblox.");
+      }
       const data = await res.json();
 
-      if (!data[0])
-        return interaction.editReply({
-          embeds: [errorEmbed("No encontré ese juego en Roblox.")]
-        });
+      if (!data.data || !data.data[0]) {
+        return interaction.reply("No encontré ningún usuario con ese nombre.");
+      }
 
-      const info = data[0];
+      const user = data.data[0];
 
-      const embed = new EmbedBuilder()
-        .setColor(0x00ffcc)
-        .setTitle("Jugadores activos")
-        .setDescription(
-          `Juego: **${info.name}**\nJugadores: **${info.playing}**\nPlace ID: \`${placeId}\``
-        );
-
-      return interaction.editReply({ embeds: [embed] });
+      return interaction.reply(
+        `Usuario: ${user.name}\n` +
+        `ID: ${user.id}\n` +
+        `Perfil: https://www.roblox.com/users/${user.id}/profile`
+      );
     }
 
-    // ---------------------- /coinflip ----------------------
+    // ---------- /friends ----------
+    if (name === "friends") {
+      const username = interaction.options.getString("username");
+
+      const search = await fetch(
+        `https://users.roblox.com/v1/users/search?keyword=${encodeURIComponent(username)}&limit=1`
+      );
+      if (!search.ok) {
+        return interaction.reply("No pude buscar ese usuario en Roblox.");
+      }
+      const sData = await search.json();
+
+      if (!sData.data || !sData.data[0]) {
+        return interaction.reply("No encontré ningún usuario con ese nombre.");
+      }
+
+      const user = sData.data[0];
+
+      const friendsRes = await fetch(
+        `https://friends.roblox.com/v1/users/${user.id}/friends/count`
+      );
+      if (!friendsRes.ok) {
+        return interaction.reply("No pude obtener los amigos de ese usuario.");
+      }
+      const fData = await friendsRes.json();
+
+      return interaction.reply(
+        `Usuario: ${user.name}\nAmigos: ${fData.count}`
+      );
+    }
+
+    // ---------- /coinflip ----------
     if (name === "coinflip") {
       const result = Math.random() < 0.5 ? "Cara" : "Cruz";
-      return interaction.reply({
-        embeds: [
-          new EmbedBuilder()
-            .setColor(0xffff00)
-            .setTitle("Coinflip")
-            .setDescription(`Resultado: **${result}**`)
-        ]
-      });
+      return interaction.reply(`Resultado: ${result}`);
     }
 
-    // ---------------------- /rate ----------------------
+    // ---------- /rate ----------
     if (name === "rate") {
       const thing = interaction.options.getString("thing");
       const score = Math.floor(Math.random() * 100) + 1;
-
-      return interaction.reply({
-        embeds: [
-          new EmbedBuilder()
-            .setColor(0xff66ff)
-            .setTitle("Calificación")
-            .setDescription(`Califico **${thing}** con un **${score}/100**.`)
-        ]
-      });
+      return interaction.reply(`Califico ${thing} con un ${score}/100.`);
     }
 
-    // ---------------------- /meme ----------------------
+    // ---------- /meme ----------
     if (name === "meme") {
       const memes = [
         "https://i.imgflip.com/30b1gx.jpg",
@@ -186,123 +311,17 @@ client.on("interactionCreate", async interaction => {
         "https://i.imgflip.com/4t0m5.jpg"
       ];
       const url = memes[Math.floor(Math.random() * memes.length)];
-
-      return interaction.reply({
-        embeds: [
-          new EmbedBuilder().setColor(0x00ffff).setTitle("Meme random").setImage(url)
-        ]
-      });
-    }
-
-    // ---------------------- /robloxuser ----------------------
-    if (name === "robloxuser") {
-      const username = interaction.options.getString("username");
-
-      await interaction.deferReply();
-
-      const res = await fetch(
-        `https://users.roblox.com/v1/users/search?keyword=${encodeURIComponent(
-          username
-        )}&limit=1`
-      );
-      const data = await res.json();
-
-      if (!data.data[0])
-        return interaction.editReply({
-          embeds: [errorEmbed("No encontré ese usuario.")]
-        });
-
-      const user = data.data[0];
-
-      const embed = new EmbedBuilder()
-        .setColor(0x00ccff)
-        .setTitle(`Usuario: ${user.name}`)
-        .setDescription(user.description || "Sin descripción.")
-        .addFields(
-          { name: "ID", value: `${user.id}`, inline: true },
-          { name: "Display Name", value: user.displayName, inline: true }
-        )
-        .setURL(`https://www.roblox.com/users/${user.id}/profile`);
-
-      return interaction.editReply({ embeds: [embed] });
-    }
-
-    // ---------------------- /friends ----------------------
-    if (name === "friends") {
-      const username = interaction.options.getString("username");
-
-      await interaction.deferReply();
-
-      const search = await fetch(
-        `https://users.roblox.com/v1/users/search?keyword=${encodeURIComponent(
-          username
-        )}&limit=1`
-      );
-      const sData = await search.json();
-
-      if (!sData.data[0])
-        return interaction.editReply({
-          embeds: [errorEmbed("No encontré ese usuario.")]
-        });
-
-      const user = sData.data[0];
-
-      const friendsRes = await fetch(
-        `https://friends.roblox.com/v1/users/${user.id}/friends/count`
-      );
-      const fData = await friendsRes.json();
-
-      const embed = new EmbedBuilder()
-        .setColor(0x33dd33)
-        .setTitle(`Amigos de ${user.name}`)
-        .setDescription(`Tiene **${fData.count}** amigos.`)
-        .setURL(`https://www.roblox.com/users/${user.id}/profile`);
-
-      return interaction.editReply({ embeds: [embed] });
-    }
-
-    // ---------------------- /gameinfo ----------------------
-    if (name === "gameinfo") {
-      const placeId = interaction.options.getString("placeid");
-
-      await interaction.deferReply();
-
-      const res = await fetch(
-        `https://games.roblox.com/v1/games/multiget-place-details?placeIds=${placeId}`
-      );
-      const data = await res.json();
-
-      if (!data[0])
-        return interaction.editReply({
-          embeds: [errorEmbed("No encontré ese juego.")]
-        });
-
-      const info = data[0];
-
-      const embed = new EmbedBuilder()
-        .setColor(0x8888ff)
-        .setTitle(info.name)
-        .setDescription(info.description || "Sin descripción.")
-        .addFields(
-          { name: "Place ID", value: `${info.placeId}`, inline: true },
-          { name: "Jugadores", value: `${info.playing}`, inline: true },
-          { name: "Visitas", value: `${info.visits}`, inline: true }
-        )
-        .setURL(`https://www.roblox.com/games/${info.placeId}`);
-
-      return interaction.editReply({ embeds: [embed] });
+      return interaction.reply(url);
     }
   } catch (err) {
     console.error(err);
     return interaction.reply({
-      embeds: [errorEmbed("Ocurrió un error inesperado.")],
+      content: "Ocurrió un error inesperado al ejecutar el comando.",
       ephemeral: true
     });
   }
 });
 
-// ----------------------
-// LOGIN
-// ----------------------
+// --------- LOGIN ---------
 
 client.login(process.env.DISCORD_TOKEN);
